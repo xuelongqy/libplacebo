@@ -336,7 +336,7 @@ bool pl_shader_sample_bicubic(pl_shader sh, const struct pl_sample_src *src)
     vec4 color;                                     \
     {                                               \
     vec2 pos = $pos;                                \
-    vec2 size = vec2(textureSize($tex, 0));         \
+    vec2 size = vec2(1.0) / $pt;                    \
     vec2 frac  = fract(pos * size + vec2(0.5));     \
     vec2 frac2 = frac * frac;                       \
     vec2 inv   = vec2(1.0) - frac;                  \
@@ -380,7 +380,7 @@ bool pl_shader_sample_hermite(pl_shader sh, const struct pl_sample_src *src)
     vec4 color;                                          \
     {                                                    \
     vec2 pos  = $pos;                                    \
-    vec2 size = vec2(textureSize($tex, 0));              \
+    vec2 size = vec2(1.0) / $pt;                         \
     vec2 frac = fract(pos * size + vec2(0.5));           \
     pos += $pt * (smoothstep(0.0, 1.0, frac) - frac);    \
     color = ${float:scale} * textureLod($tex, pos, 0.0); \
@@ -406,7 +406,7 @@ bool pl_shader_sample_gaussian(pl_shader sh, const struct pl_sample_src *src)
     vec4 color;                                     \
     {                                               \
     vec2 pos  = $pos;                               \
-    vec2 size = vec2(textureSize($tex, 0));         \
+    vec2 size = vec2(1.0) / $pt;                    \
     vec2 off  = -fract(pos * size + vec2(0.5));     \
     vec2 off2 = -2.0 * off * off;                   \
     /* compute gaussian weights */                  \
@@ -447,7 +447,7 @@ bool pl_shader_sample_oversample(pl_shader sh, const struct pl_sample_src *src,
     vec4 color;                                          \
     {                                                    \
     vec2 pos = $pos;                                     \
-    vec2 size = vec2(textureSize($tex, 0));              \
+    vec2 size = vec2(1.0) / $pt;                         \
     /* Round the position to the nearest pixel */        \
     vec2 fcoord = fract(pos * size - vec2(0.5));         \
     float rx = ${dynamic float:rx};                      \
@@ -635,7 +635,7 @@ bool pl_shader_sample_polar(pl_shader sh, const struct pl_sample_src *src,
          "vec4 color = vec4(0.0);                       \n"
          "{                                             \n"
          "vec2 pos = "$", pt = "$";                     \n"
-         "vec2 size = vec2(textureSize("$", 0));        \n"
+         "vec2 size = vec2(1.0) / pt;                   \n"
          "vec2 fcoord = fract(pos * size - vec2(0.5));  \n"
          "vec2 base = pos - pt * fcoord;                \n"
          "vec2 center = base + pt * vec2(0.5);          \n"
@@ -643,7 +643,7 @@ bool pl_shader_sample_polar(pl_shader sh, const struct pl_sample_src *src,
          "float w, d, wsum = 0.0;                       \n"
          "int idx;                                      \n"
          "vec4 c;                                       \n",
-         pos, pt, src_tex);
+         pos, pt);
 
     bool use_ar = cfg.antiring > 0;
     if (use_ar) {
@@ -1066,7 +1066,7 @@ bool pl_shader_sample_ortho2(pl_shader sh, const struct pl_sample_src *src,
     vec4 color = vec4(0.0, 0.0, 0.0, 1.0);                                      \
     {                                                                           \
     vec2 pos = $pos, pt = $pt;                                                  \
-    vec2 size = vec2(textureSize($src_tex, 0));                                 \
+    vec2 size = vec2(1.0) / pt;                                                 \
     vec2 dir = vec2(${const float:dir[pass][0]}, ${const float: dir[pass][1]}); \
     pt *= dir;                                                                  \
     vec2 fcoord2 = fract(pos * size - vec2(0.5));                               \
@@ -1188,7 +1188,7 @@ void pl_shader_distort(pl_shader sh, pl_tex src_tex, int out_w, int out_h,
     vec2 pos = $tf * $pos + $tf_c;                          \
     vec2 pt = $pt;                                          \
     @if (params->bicubic) {                                 \
-        vec2 size = vec2(textureSize($tex, 0));             \
+        vec2 size = vec2(1.0) / pt;                         \
         vec2 frac  = fract(pos * size + vec2(0.5));         \
         vec2 frac2 = frac * frac;                           \
         vec2 inv   = vec2(1.0) - frac;                      \

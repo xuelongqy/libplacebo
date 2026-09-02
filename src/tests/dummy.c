@@ -1,5 +1,7 @@
 #include "gpu_tests.h"
 
+#include <string.h>
+
 #include <libplacebo/dummy.h>
 #include <libplacebo/renderer.h>
 
@@ -63,7 +65,31 @@ int main()
     REQUIRE((res = pl_shader_finalize(sh)));
     REQUIRE_CMP(res->input, ==, PL_SHADER_SIG_SAMPLER, "u");
 
+    // Rectangle samplers use unnormalized coordinates and do not accept a
+    // mipmap level argument to textureSize().
+    src.sampler = PL_SAMPLER_RECT;
+
+    pl_shader_reset(sh, pl_shader_params( .gpu = gpu ));
+    REQUIRE(pl_shader_sample_polar(sh, &src, &filter_params));
+    REQUIRE((res = pl_shader_finalize(sh)));
+    REQUIRE_CMP(res->input, ==, PL_SHADER_SIG_SAMPLER, "u");
+    REQUIRE(strstr(res->glsl, "sampler2DRect"));
+    REQUIRE(!strstr(res->glsl, "textureSize("));
+
+    pl_shader_obj ortho = NULL;
+    src.new_h = src.tex_h;
+    pl_shader_reset(sh, pl_shader_params( .gpu = gpu ));
+    REQUIRE(pl_shader_sample_ortho2(sh, &src, pl_sample_filter_params(
+        .filter = pl_filter_spline36,
+        .lut = &ortho,
+    )));
+    REQUIRE((res = pl_shader_finalize(sh)));
+    REQUIRE_CMP(res->input, ==, PL_SHADER_SIG_SAMPLER, "u");
+    REQUIRE(strstr(res->glsl, "sampler2DRect"));
+    REQUIRE(!strstr(res->glsl, "textureSize("));
+
     pl_shader_free(&sh);
+    pl_shader_obj_destroy(&ortho);
     pl_shader_obj_destroy(&lut);
     pl_tex_destroy(gpu, &dummy);
     pl_gpu_dummy_destroy(&gpu);
