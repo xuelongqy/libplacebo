@@ -312,6 +312,9 @@ static pl_handle_caps vk_tex_handle_caps(struct vk_ctx *vk, bool import)
 
     for (int i = 0; vk_mem_handle_list[i]; i++) {
         enum pl_handle_type handle_type = vk_mem_handle_list[i];
+        if (handle_type == PL_HANDLE_HOST_PTR && !vk->GetMemoryHostPointerPropertiesEXT)
+            continue;
+
         if (handle_type == PL_HANDLE_DMA_BUF && !vk->GetImageDrmFormatModifierPropertiesEXT) {
             PL_DEBUG(vk, "Tex caps for %s (0x%x) unsupported: no DRM modifiers",
                      vk_handle_name(vk_mem_handle_type(PL_HANDLE_DMA_BUF)),
