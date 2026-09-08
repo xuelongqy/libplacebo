@@ -358,7 +358,8 @@ void vk_buf_write(pl_gpu gpu, pl_buf buf, size_t offset,
             return;
         }
 
-        vk_buf_barrier(gpu, cmd, buf, VK_PIPELINE_STAGE_2_COPY_BIT,
+        // vkCmdUpdateBuffer executes in the clear stage, not the copy stage.
+        vk_buf_barrier(gpu, cmd, buf, VK_PIPELINE_STAGE_2_CLEAR_BIT,
                        VK_ACCESS_2_TRANSFER_WRITE_BIT, offset, size, false);
 
         // Vulkan requires `size` to be a multiple of 4, so we need to make
