@@ -794,9 +794,10 @@ fallback:
     pl_shader_sample_direct(sh, src);
 }
 
-// also clamps to the range implied by `repr`
+// also clamps to the range implied by `repr`, except extended float RGB
 static void swizzle_color(pl_shader sh, int comps, const int comp_map[4],
-                          bool force_alpha, const struct pl_color_repr *repr)
+                          bool force_alpha, const struct pl_color_repr *repr,
+                          pl_fmt fmt)
 {
     ident_t orig = sh_fresh(sh, "orig_color");
     GLSL("vec4 "$" = color;                 \n"
@@ -804,6 +805,9 @@ static void swizzle_color(pl_shader sh, int comps, const int comp_map[4],
 
     float min[4], max[4];
     pl_color_repr_limits(repr, min, max);
+    const bool extended = fmt->type == PL_FMT_FLOAT &&
+                          repr->sys == PL_COLOR_SYSTEM_RGB &&
+                          pl_color_levels_guess(repr) == PL_COLOR_LEVELS_FULL;
 
     static const int def_map[4] = {0, 1, 2, 3};
     comp_map = PL_DEF(comp_map, def_map);
@@ -812,8 +816,12 @@ static void swizzle_color(pl_shader sh, int comps, const int comp_map[4],
         const int idx = comp_map[c];
         if (idx < 0)
             continue;
-        GLSL("color[%d] = clamp("$"[%d], "$", "$"); \n",
-             c, orig, idx, SH_FLOAT(min[idx]), SH_FLOAT(max[idx]));
+        if (extended && idx < 3) {
+            GLSL("color[%d] = "$"[%d]; \n", c, orig, idx);
+        } else {
+            GLSL("color[%d] = clamp("$"[%d], "$", "$"); \n",
+                 c, orig, idx, SH_FLOAT(min[idx]), SH_FLOAT(max[idx]));
+        }
     }
 
     if (force_alpha)
@@ -1005,7 +1013,7 @@ static void draw_overlays(struct pass_state *pass, pl_tex fbo,
                  premul ? "rgba" : "a", tex);
         }
 
-        swizzle_color(sh, comps, comp_map, true, &repr);
+        swizzle_color(sh, comps, comp_map, true, &repr, fbo->params.format);
 
         struct pl_blend_params blend_params = {
             .src_rgb = premul ? PL_BLEND_ONE : PL_BLEND_SRC_ALPHA,
@@ -2683,7 +2691,8 @@ static void clear_target(struct pass_state *pass, const pl_tex background,
                  SH_FLOAT(bg_scale));
 
             swizzle_color(sh, plane->components, plane->component_mapping,
-                          params->blend_params, &target->repr);
+                          params->blend_params, &target->repr,
+                          plane->texture->params.format);
 
             pl_dispatch_finish(rr->dp, pl_dispatch_params(
                 .shader         = &sh,
@@ -3087,7 +3096,8 @@ static bool pass_output_target(struct pass_state *pass)
         }
 
         swizzle_color(sh, plane->components, plane->component_mapping,
-                      params->blend_params, &target->repr);
+                      params->blend_params, &target->repr,
+                      plane->texture->params.format);
 
         pl_rect2d plane_rect = {
             .x0 = flipped_x ? rx1 : rx0,

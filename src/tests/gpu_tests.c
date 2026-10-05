@@ -1593,6 +1593,54 @@ error:
     pl_tex_destroy(gpu, &fbo);
 }
 
+static void pl_render_float_tests(pl_gpu gpu)
+{
+    printf("pl_render_float_tests:\n");
+    pl_fmt fmt = pl_find_fmt(gpu, PL_FMT_FLOAT, 4, 32, 32,
+                            PL_FMT_CAP_SAMPLEABLE | PL_FMT_CAP_RENDERABLE |
+                            PL_FMT_CAP_HOST_READABLE);
+    if (!fmt) {
+        printf("- no suitable f32 format, skipping\n");
+        return;
+    }
+
+    const float data[4] = { -0.25f, 0.5f, 2.0f, 1.0f };
+    pl_tex src = pl_tex_create(gpu, pl_tex_params(
+        .w = 1, .h = 1, .format = fmt,
+        .sampleable = true, .initial_data = data,
+    ));
+    pl_tex dst = pl_tex_create(gpu, pl_tex_params(
+        .w = 1, .h = 1, .format = fmt,
+        .renderable = true, .host_readable = true,
+    ));
+    REQUIRE(src);
+    REQUIRE(dst);
+
+    pl_renderer rr = pl_renderer_create(gpu->log, gpu);
+    REQUIRE(rr);
+    struct pl_frame image = {
+        .num_planes = 1,
+        .planes = {{ .texture = src, .components = 4,
+                     .component_mapping = {0, 1, 2, 3} }},
+        .repr = pl_color_repr_rgb,
+        .color = { .primaries = PL_COLOR_PRIM_BT_709,
+                   .transfer = PL_COLOR_TRC_SCRGB },
+    };
+    struct pl_frame target = image;
+    target.planes[0].texture = dst;
+    REQUIRE(pl_render_image(rr, &image, &target, NULL));
+    REQUIRE(pl_renderer_get_errors(rr).errors == PL_RENDER_ERR_NONE);
+
+    float out[4];
+    REQUIRE(pl_tex_download(gpu, pl_tex_transfer_params(.tex = dst, .ptr = out)));
+    for (int c = 0; c < 4; c++)
+        REQUIRE_FEQ(out[c], data[c], 1e-6);
+
+    pl_renderer_destroy(&rr);
+    pl_tex_destroy(gpu, &src);
+    pl_tex_destroy(gpu, &dst);
+}
+
 // Tests for the bit encoding logic, in both directions:
 //  - encoding MSB-aligned output (e.g. P010) must produce the same value as
 //    the LSB-aligned equivalent (e.g. yuv420p10), with zero padding bits
@@ -2082,6 +2130,7 @@ void gpu_shader_tests(pl_gpu gpu)
     pl_shader_tests(gpu);
     pl_scaler_tests(gpu);
     pl_render_tests(gpu);
+    pl_render_float_tests(gpu);
     pl_render_bits_tests(gpu);
     pl_ycbcr_tests(gpu);
 
